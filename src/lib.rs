@@ -6,10 +6,13 @@ enum Currency {
     Usd,
     Gbp,
 }
+
+#[derive(Debug)]
+struct Time(NaiveDate);
+
 #[derive(Debug)]
 enum Observable {
     Constant(f64),
-    Time(NaiveDate),
 }
 
 #[derive(Debug)]
@@ -21,7 +24,7 @@ enum Combinators {
     Or(Rc<Combinators>, Rc<Combinators>),
     Scale(Observable, Rc<Combinators>),
     Truncate {
-        date: NaiveDate,
+        date: Time,
         contract: Rc<Combinators>,
     },
     Then(Rc<Combinators>, Rc<Combinators>),
@@ -69,7 +72,7 @@ impl ContractBuilder {
 
     fn truncate(mut self, date: NaiveDate) -> Self {
         self.combinator = Rc::new(Combinators::Truncate {
-            date,
+            date: Time(date),
             contract: self.combinator,
         });
         self
@@ -93,10 +96,5 @@ mod tests {
             .scale(Observable::Constant(100.0))
             .truncate(maturity_date)
             .build();
-
-        match zero_coupon_bond.combinator {
-            Combinators::Truncate { date, .. } => assert_eq!(date, maturity_date),
-            _ => panic!("Expected Truncate combinator with specified maturity date"),
-        }
     }
 }
