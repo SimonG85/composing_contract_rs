@@ -3,8 +3,8 @@ use chrono::NaiveDate;
 
 #[derive(Debug)]
 enum Currency {
-    USD,
-    GBP,
+    Usd,
+    Gbp,
 }
 #[derive(Debug)]
 enum Observable {
@@ -81,7 +81,7 @@ mod tests {
     fn test_zero_coupon_bond() {
         let maturity_date = NaiveDate::from_ymd_opt(2030, 1, 1).unwrap();
         let zero_coupon_bond = ContractBuilder::new()
-            .one(Currency::USD)
+            .one(Currency::Usd)
             .scale(Observable::Constant(100.0))
             .truncate(maturity_date)
             .build();
