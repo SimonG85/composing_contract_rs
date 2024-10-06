@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use chrono::NaiveDate;
+use std::rc::Rc;
 
 #[derive(Debug)]
 enum Currency {
@@ -20,7 +20,10 @@ enum Combinators {
     And(Rc<Combinators>, Rc<Combinators>),
     Or(Rc<Combinators>, Rc<Combinators>),
     Scale(Observable, Rc<Combinators>),
-    Truncate { date: NaiveDate, contract: Rc<Combinators> },
+    Truncate {
+        date: NaiveDate,
+        contract: Rc<Combinators>,
+    },
     Then(Rc<Combinators>, Rc<Combinators>),
 }
 
@@ -34,7 +37,9 @@ struct ContractBuilder {
 
 impl ContractBuilder {
     fn new() -> Self {
-        ContractBuilder { combinator: Rc::new(Combinators::Zero) }
+        ContractBuilder {
+            combinator: Rc::new(Combinators::Zero),
+        }
     }
 
     fn one(mut self, currency: Currency) -> Self {
@@ -63,13 +68,16 @@ impl ContractBuilder {
     }
 
     fn truncate(mut self, date: NaiveDate) -> Self {
-        self.combinator = Rc::new(Combinators::Truncate { date, contract: self.combinator });
+        self.combinator = Rc::new(Combinators::Truncate {
+            date,
+            contract: self.combinator,
+        });
         self
     }
 
     fn build(self) -> Contract {
         Contract {
-            combinator: Rc::try_unwrap(self.combinator).unwrap()
+            combinator: Rc::try_unwrap(self.combinator).unwrap(),
         }
     }
 }
