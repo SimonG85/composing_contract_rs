@@ -5,6 +5,7 @@ use std::rc::Rc;
 enum Currency {
     Usd,
     Gbp,
+    Eur,
 }
 
 #[derive(Debug)]
@@ -13,65 +14,66 @@ struct Time(NaiveDate);
 #[derive(Debug)]
 enum Observable {
     Constant(f64),
+    ExchangeRate(Currency, Currency),
 }
 
 #[derive(Debug)]
-enum Combinators {
+enum Combinator {
     Zero,
     One(Currency),
-    Give(Rc<Combinators>),
-    And(Rc<Combinators>, Rc<Combinators>),
-    Or(Rc<Combinators>, Rc<Combinators>),
-    Scale(Observable, Rc<Combinators>),
+    Give(Rc<Combinator>),
+    And(Rc<Combinator>, Rc<Combinator>),
+    Or(Rc<Combinator>, Rc<Combinator>),
+    Scale(Observable, Rc<Combinator>),
     Truncate {
         date: Time,
-        contract: Rc<Combinators>,
+        contract: Rc<Combinator>,
     },
-    Then(Rc<Combinators>, Rc<Combinators>),
+    Then(Rc<Combinator>, Rc<Combinator>),
 }
 
 struct Contract {
-    combinator: Combinators,
+    combinator: Combinator,
 }
 
 struct ContractBuilder {
-    combinator: Rc<Combinators>,
+    combinator: Rc<Combinator>,
 }
 
 impl ContractBuilder {
     fn new() -> Self {
         ContractBuilder {
-            combinator: Rc::new(Combinators::Zero),
+            combinator: Rc::new(Combinator::Zero),
         }
     }
 
     fn one(mut self, currency: Currency) -> Self {
-        self.combinator = Rc::new(Combinators::One(currency));
+        self.combinator = Rc::new(Combinator::One(currency));
         self
     }
 
     fn scale(mut self, observable: Observable) -> Self {
-        self.combinator = Rc::new(Combinators::Scale(observable, self.combinator));
+        self.combinator = Rc::new(Combinator::Scale(observable, self.combinator));
         self
     }
 
     fn give(mut self) -> Self {
-        self.combinator = Rc::new(Combinators::Give(self.combinator));
+        self.combinator = Rc::new(Combinator::Give(self.combinator));
         self
     }
 
-    fn and(mut self, other: Rc<Combinators>) -> Self {
-        self.combinator = Rc::new(Combinators::And(self.combinator, other));
+    fn and(mut self, other: Rc<Combinator>) -> Self {
+        self.combinator = Rc::new(Combinator::And(self.combinator, other));
         self
     }
 
-    fn or(mut self, other: Rc<Combinators>) -> Self {
-        self.combinator = Rc::new(Combinators::Or(self.combinator, other));
+    fn or(mut self, other: Rc<Combinator>) -> Self {
+        self.combinator = Rc::new(Combinator::Or(self.combinator, other));
         self
     }
 
     fn truncate(mut self, date: NaiveDate) -> Self {
-        self.combinator = Rc::new(Combinators::Truncate {
+        self.combinator = Rc::new(Combinator::Truncate {
             date: Time(date),
             contract: self.combinator,
         });
