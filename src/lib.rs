@@ -2,88 +2,76 @@ use chrono::NaiveDate;
 use std::rc::Rc;
 
 #[derive(Debug)]
-enum Currency {
+pub enum Currency {
     Usd,
     Gbp,
     Eur,
 }
 
 #[derive(Debug)]
-struct Time(NaiveDate);
+pub struct Time(pub NaiveDate);
 
 #[derive(Debug)]
-enum Observable {
+pub enum Observable {
     Constant(f64),
     ExchangeRate(Currency, Currency),
 }
 
 #[derive(Debug)]
-enum Combinator {
+pub enum Combinator {
     Zero,
     One(Currency),
     Give(Rc<Combinator>),
     And(Rc<Combinator>, Rc<Combinator>),
     Or(Rc<Combinator>, Rc<Combinator>),
     Scale(Observable, Rc<Combinator>),
-    Truncate {
-        date: Time,
-        contract: Rc<Combinator>,
-    },
+    Truncate(Time, Rc<Combinator>),
     Then(Rc<Combinator>, Rc<Combinator>),
 }
 
-struct Contract {
-    combinator: Combinator,
-}
+#[derive(Debug)]
+pub struct Contract(pub Combinator);
 
-struct ContractBuilder {
-    combinator: Rc<Combinator>,
+#[derive(Debug)]
+pub struct ContractBuilder(Combinator);
+
+impl Default for ContractBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ContractBuilder {
-    fn new() -> Self {
-        ContractBuilder {
-            combinator: Rc::new(Combinator::Zero),
-        }
+    pub fn new() -> Self {
+        ContractBuilder(Combinator::Zero)
     }
 
-    fn one(mut self, currency: Currency) -> Self {
-        self.combinator = Rc::new(Combinator::One(currency));
-        self
+    pub fn one(self, currency: Currency) -> Self {
+        ContractBuilder(Combinator::One(currency))
     }
 
-    fn scale(mut self, observable: Observable) -> Self {
-        self.combinator = Rc::new(Combinator::Scale(observable, self.combinator));
-        self
+    pub fn scale(self, observable: Observable) -> Self {
+        ContractBuilder(Combinator::Scale(observable, Rc::from(self.0)))
     }
 
-    fn give(mut self) -> Self {
-        self.combinator = Rc::new(Combinator::Give(self.combinator));
-        self
+    pub fn give(self) -> Self {
+        ContractBuilder(Combinator::Give(Rc::from(self.0)))
     }
 
-    fn and(mut self, other: Rc<Combinator>) -> Self {
-        self.combinator = Rc::new(Combinator::And(self.combinator, other));
-        self
+    pub fn and(self, other: ContractBuilder) -> Self {
+        ContractBuilder(Combinator::And(Rc::from(self.0), Rc::from(other.0)))
     }
 
-    fn or(mut self, other: Rc<Combinator>) -> Self {
-        self.combinator = Rc::new(Combinator::Or(self.combinator, other));
-        self
+    pub fn or(self, other: ContractBuilder) -> Self {
+        ContractBuilder(Combinator::Or(Rc::from(self.0), Rc::from(other.0)))
     }
 
-    fn truncate(mut self, date: NaiveDate) -> Self {
-        self.combinator = Rc::new(Combinator::Truncate {
-            date: Time(date),
-            contract: self.combinator,
-        });
-        self
+    pub fn truncate(self, date: Time) -> Self {
+        ContractBuilder(Combinator::Truncate(date, Rc::from(self.0)))
     }
 
-    fn build(self) -> Contract {
-        Contract {
-            combinator: Rc::try_unwrap(self.combinator).unwrap(),
-        }
+    pub fn build(self) -> Contract {
+        Contract(self.0)
     }
 }
 
@@ -96,7 +84,8 @@ mod tests {
         let zero_coupon_bond = ContractBuilder::new()
             .one(Currency::Usd)
             .scale(Observable::Constant(100.0))
-            .truncate(maturity_date)
+            .truncate(Time(maturity_date))
             .build();
+        println!("{:?}", zero_coupon_bond);
     }
 }
