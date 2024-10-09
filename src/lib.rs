@@ -9,117 +9,81 @@ pub enum Currency {
 }
 
 #[derive(Debug)]
-pub struct Time(pub NaiveDate);
-
-#[derive(Debug)]
 pub enum Observable {
     Constant(f64),
     ExchangeRate(Currency, Currency),
+    Time(NaiveDate),
 }
 
 #[derive(Debug)]
-pub enum Combinator {
+enum Combinator {
     Zero,
     One(Currency),
     Give(Rc<Combinator>),
     And(Rc<Combinator>, Rc<Combinator>),
     Or(Rc<Combinator>, Rc<Combinator>),
-    Scale(Observable, Rc<Combinator>),
-    Truncate(Time, Rc<Combinator>),
+    Truncate(NaiveDate, Rc<Combinator>),
     Then(Rc<Combinator>, Rc<Combinator>),
+    Scale(Observable, Rc<Combinator>),
+    Get(Rc<Combinator>),
+    AnyTime(Rc<Combinator>),
 }
 
 #[derive(Debug)]
-pub struct Contract(pub Rc<Combinator>);
+pub struct Contract(Rc<Combinator>);
 
-impl Contract {
-    pub fn evaluate(&self, date: &NaiveDate) -> f64 {
-        self.0.evaluate(date)
-    }
-}
-
-#[derive(Debug)]
-pub struct ContractBuilder(Rc<Combinator>);
-
-impl Default for ContractBuilder {
+impl Default for Contract {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ContractBuilder {
+impl Contract {
     pub fn new() -> Self {
-        ContractBuilder(Rc::new(Combinator::Zero))
+        Contract(Rc::new(Combinator::Zero))
     }
 
-    pub fn one(self, currency: Currency) -> Self {
-        ContractBuilder(Rc::new(Combinator::One(currency)))
+    pub fn one(currency: Currency) -> Self {
+        Contract(Rc::new(Combinator::One(currency)))
+    }
+    pub fn give(self) -> Self {
+        Contract(Rc::new(Combinator::Give(self.0.clone())))
+    }
+    pub fn and(self, other: Contract) -> Self {
+        Contract(Rc::new(Combinator::And(self.0.clone(), other.0.clone())))
+    }
+
+    pub fn or(self, other: Contract) -> Self {
+        Contract(Rc::new(Combinator::Or(self.0.clone(), other.0.clone())))
+    }
+    pub fn truncate(self, date: NaiveDate) -> Self {
+        Contract(Rc::new(Combinator::Truncate(date, self.0.clone())))
+    }
+
+    pub fn then(self, other: Contract) -> Self {
+        Contract(Rc::new(Combinator::Then(self.0.clone(), other.0.clone())))
     }
 
     pub fn scale(self, observable: Observable) -> Self {
-        ContractBuilder(Rc::new(Combinator::Scale(observable, Rc::clone(&self.0))))
+        Contract(Rc::new(Combinator::Scale(observable, self.0.clone())))
     }
 
-    pub fn give(self) -> Self {
-        ContractBuilder(Rc::new(Combinator::Give(Rc::clone(&self.0))))
+    pub fn get(self) -> Self {
+        Contract(Rc::new(Combinator::Get(self.0.clone())))
     }
-
-    pub fn and(self, other: ContractBuilder) -> Self {
-        ContractBuilder(Rc::new(Combinator::And(
-            Rc::clone(&self.0),
-            Rc::clone(&other.0),
-        )))
-    }
-
-    pub fn or(self, other: ContractBuilder) -> Self {
-        ContractBuilder(Rc::new(Combinator::Or(
-            Rc::clone(&self.0),
-            Rc::clone(&other.0),
-        )))
-    }
-
-    pub fn truncate(self, date: Time) -> Self {
-        ContractBuilder(Rc::new(Combinator::Truncate(date, Rc::clone(&self.0))))
-    }
-
-    pub fn then(self, other: ContractBuilder) -> Self {
-        ContractBuilder(Rc::new(Combinator::Then(
-            Rc::clone(&self.0),
-            Rc::clone(&other.0),
-        )))
-    }
-
-    pub fn build(self) -> Contract {
-        Contract(self.0)
+    pub fn anytime(self) -> Self {
+        Contract(Rc::new(Combinator::AnyTime(self.0.clone())))
     }
 }
 
-impl Combinator {
-    pub fn evaluate(&self, date: &NaiveDate) -> f64 {
-        match self {
-            Combinator::Zero => 0.0,
-            Combinator::One(_) => 1.0,
-            Combinator::Give(inner) => -inner.evaluate(date),
-            Combinator::And(lhs, rhs) => lhs.evaluate(date) + rhs.evaluate(date),
-            Combinator::Or(lhs, rhs) => lhs.evaluate(date).max(rhs.evaluate(date)),
-            Combinator::Scale(Observable::Constant(factor), inner) => factor * inner.evaluate(date),
-            Combinator::Truncate(Time(maturity), inner) => {
-                if date <= maturity {
-                    inner.evaluate(date)
-                } else {
-                    0.0
-                }
-            }
-            Combinator::Then(lhs, rhs) => {
-                if lhs.evaluate(date) != 0.0 {
-                    lhs.evaluate(date)
-                } else {
-                    rhs.evaluate(date)
-                }
-            }
-            _ => unimplemented!("Implementation not available for this combinator"),
-        }
-    }
+fn zcb(maturity_date: NaiveDate, scale: f64, currency: Currency) -> Contract {
+    Contract::one(currency)
+        .truncate(maturity_date)
+        .scale(Observable::Constant(scale))
+}
+
+fn european_option(date: NaiveDate, contract: Contract) -> Contract {
+    Contract::new().or(contract).truncate(date).get()
 }
 
 #[cfg(test)]
@@ -128,24 +92,16 @@ mod tests {
     #[test]
     fn test_zero_coupon_bond_at_maturity() {
         let maturity_date = NaiveDate::from_ymd_opt(2030, 1, 1).unwrap();
-        let zero_coupon_bond = ContractBuilder::new()
-            .one(Currency::Usd)
+        let zero_coupon_bond = Contract::one(Currency::Usd)
             .scale(Observable::Constant(100.0))
-            .truncate(Time(maturity_date))
-            .build();
-
-        assert_eq!(zero_coupon_bond.evaluate(&maturity_date), 100.0);
+            .truncate(maturity_date);
     }
     #[test]
     fn test_zero_coupon_bond_after_maturity() {
         let maturity_date = NaiveDate::from_ymd_opt(2030, 1, 1).unwrap();
         let evaluation_date = NaiveDate::from_ymd_opt(2031, 1, 1).unwrap();
-        let zero_coupon_bond = ContractBuilder::new()
-            .one(Currency::Usd)
+        let zero_coupon_bond = Contract::one(Currency::Usd)
             .scale(Observable::Constant(100.0))
-            .truncate(Time(maturity_date))
-            .build();
-
-        assert_eq!(zero_coupon_bond.evaluate(&evaluation_date), 0.0);
+            .truncate(maturity_date);
     }
 }
