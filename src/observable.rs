@@ -1,5 +1,5 @@
-use chrono::NaiveDate;
 use crate::currency::Currency;
+use chrono::NaiveDate;
 
 #[derive(Debug)]
 pub enum Observable {
@@ -7,5 +7,3 @@ pub enum Observable {
     ExchangeRate(Currency, Currency),
     Time(NaiveDate),
 }
-
-

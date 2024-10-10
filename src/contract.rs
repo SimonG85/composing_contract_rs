@@ -1,8 +1,8 @@
-use std::rc::Rc;
-use chrono::NaiveDate;
 use crate::combinator::Combinator;
 use crate::currency::Currency;
 use crate::observable::Observable;
+use chrono::NaiveDate;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Contract(pub(crate) Rc<Combinator>);
@@ -12,7 +12,6 @@ impl Default for Contract {
         Self::new()
     }
 }
-
 
 impl Contract {
     pub fn new() -> Self {

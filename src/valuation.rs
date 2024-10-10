@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use chrono::NaiveDate;
 use crate::combinator::Combinator;
 use crate::contract::Contract;
 use crate::currency::Currency;
 use crate::observable::Observable;
+use chrono::NaiveDate;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub type RandomVariable = f64;
 pub type ValueProcess = HashMap<NaiveDate, RandomVariable>;

@@ -1,7 +1,7 @@
-use std::rc::Rc;
-use chrono::NaiveDate;
 use crate::currency::Currency;
 use crate::observable::Observable;
+use chrono::NaiveDate;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Combinator {
@@ -16,5 +16,3 @@ pub enum Combinator {
     Get(Rc<Combinator>),
     AnyTime(Rc<Combinator>),
 }
-
-
