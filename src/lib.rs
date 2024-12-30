@@ -1,4 +1,3 @@
-pub mod combinator;
 pub mod contract;
 pub mod currency;
 pub mod interest_rate;
